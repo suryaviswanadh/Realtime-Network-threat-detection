@@ -1,0 +1,16 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual Environment
+venv/
+.venv/
+
+# Log files and user data
+*.log
+security_log.txt
+network_data.json
+
+# Editor-specific files
+.vscode/
+.idea/
