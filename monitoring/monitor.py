@@ -92,7 +92,7 @@ class NetworkMonitor:
             print("[✓] ML Engine loaded successfully")
             self.ml_available = True
         except ImportError:
-            print("[!] ML Engine not available. Install scikit-learn and tensorflow.")
+            print("[!] ML Engine not available. Install scikit-learn for ML features.")
             self.ml_available = False
             self.ml_engine = None
         
@@ -492,36 +492,13 @@ class NetworkMonitor:
     def unblock_ip(self, ip_address):
         """Unblock an IP address"""
         if self.enhanced_features_available:
-            # Remove from firewall blocked list
-            if ip_address in self.firewall.blocked_ips:
-                self.firewall.blocked_ips.remove(ip_address)
-                
-                # Remove related rules
-                rules_to_remove = [r['id'] for r in self.firewall.rules 
-                                 if r['type'] == 'ip' and r['value'] == ip_address]
-                for rule_id in rules_to_remove:
-                    self.firewall.remove_rule(rule_id)
-                
-                self._log_event(f"Unblocked IP: {ip_address}")
-                return True
+            return self.firewall.unblock_ip(ip_address)
         return False
     
     def clear_all_blocks(self):
         """Clear all blocked IPs"""
         if self.enhanced_features_available:
-            self.firewall.blocked_ips.clear()
-            self.firewall.rules.clear()
+            self.firewall.clear_all_rules()
             self._log_event("Cleared all firewall blocks")
             return True
         return False
-
-
-# For backward compatibility
-class NetworkMonitorBasic:
-    """
-    Basic version without ML features for systems that can't install TensorFlow
-    """
-    def __init__(self):
-        print("[!] Running in basic mode (no ML features)")
-        # Implement basic features only
-        pass
