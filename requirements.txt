@@ -1,4 +1,15 @@
-psutil
-matplotlib
-numpy
-scapy
+# Core Dependencies
+scapy>=2.5.0
+psutil>=5.9.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# Machine Learning (Optional but Recommended)
+scikit-learn>=1.3.0
+
+# Note: TensorFlow is optional and large
+# Uncomment if you want full ML features:
+# tensorflow>=2.15.0
+
+# Optional but Recommended
+requests>=2.31.0
