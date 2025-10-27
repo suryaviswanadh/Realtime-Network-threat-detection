@@ -4,14 +4,15 @@ Deep packet inspection for different protocols
 """
 
 from datetime import datetime
-
+from collections import deque
+import re
 
 class ProtocolAnalyzer:
     """Deep packet inspection for different protocols"""
     
     def __init__(self):
-        self.http_requests = []
-        self.dns_queries = []
+        self.http_requests = deque(maxlen=1000)
+        self.dns_queries = deque(maxlen=1000)
         self.suspicious_paths = [
             '/admin', 
             '/phpmyadmin', 
@@ -28,7 +29,13 @@ class ProtocolAnalyzer:
             'spam',
             'exploit'
         ]
-        
+        # Using more robust regex for SQLi detection
+        self.sql_patterns = [
+            re.compile(r"(\bunion\b.*\bselect\b)", re.IGNORECASE),
+            re.compile(r"(\bor\b\s*[\d\w'\"_]+\s*=\s*[\d\w'\"_]+)", re.IGNORECASE),
+            re.compile(r"(--|;|\b(ALTER|CREATE|DELETE|DROP|EXEC|INSERT|MERGE|SHUTDOWN|UPDATE)\b)")
+        ]
+
     def analyze_http(self, packet_info):
         """
         Analyze HTTP traffic for suspicious patterns
@@ -51,10 +58,6 @@ class ProtocolAnalyzer:
             
             self.http_requests.append(http_info)
             
-            # Keep only recent requests (limit memory)
-            if len(self.http_requests) > 1000:
-                self.http_requests = self.http_requests[-1000:]
-            
             # Check for suspicious patterns
             return self._check_http_suspicious(http_info)
             
@@ -76,13 +79,12 @@ class ProtocolAnalyzer:
                 }
         
         # Check for SQL injection attempts in path
-        sql_patterns = ['union', 'select', 'drop', 'insert', '--', ';']
-        for pattern in sql_patterns:
-            if pattern in path:
+        for pattern in self.sql_patterns:
+            if pattern.search(path):
                 return {
                     'type': 'sql_injection_attempt',
                     'severity': 'high',
-                    'details': f"Possible SQL injection: {pattern} in path"
+                    'details': f"Possible SQL injection: '{pattern.pattern}' in path"
                 }
         
         # Check for directory traversal
@@ -113,10 +115,6 @@ class ProtocolAnalyzer:
             }
             
             self.dns_queries.append(dns_info)
-            
-            # Keep only recent queries
-            if len(self.dns_queries) > 1000:
-                self.dns_queries = self.dns_queries[-1000:]
             
             # Check for suspicious patterns
             return self._check_dns_suspicious(dns_info)
@@ -162,8 +160,8 @@ class ProtocolAnalyzer:
         return {
             'total_http_requests': len(self.http_requests),
             'total_dns_queries': len(self.dns_queries),
-            'recent_http': self.http_requests[-10:] if self.http_requests else [],
-            'recent_dns': self.dns_queries[-10:] if self.dns_queries else []
+            'recent_http': list(self.http_requests)[-10:],
+            'recent_dns': list(self.dns_queries)[-10:]
         }
     
     def clear_history(self):

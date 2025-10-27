@@ -1,10 +1,5 @@
-"""
-Threat Intelligence Window
-Display detailed threat information and statistics
-"""
-
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, messagebox
 from utils.constants import THEME_COLORS
 
 
@@ -70,16 +65,13 @@ class ThreatIntelWindow:
         self.threats_tree = ttk.Treeview(
             threats_frame,
             columns=columns,
-            show="tree headings",
+            show="headings", # Changed from "tree headings"
             height=15
         )
         
         # Configure columns
-        self.threats_tree.column("#0", width=50)
-        self.threats_tree.heading("#0", text="#")
-        
         for col in columns:
-            self.threats_tree.column(col, width=150)
+            self.threats_tree.column(col, width=150, anchor=tk.W)
             self.threats_tree.heading(col, text=col)
         
         # Scrollbar
@@ -107,30 +99,28 @@ class ThreatIntelWindow:
             self.stats_text.insert(tk.END, "Enhanced features not available.\nInstall required dependencies.")
             return
         
-        # Get threat intelligence report
-        report = self.monitor.threat_intel.get_threat_report()
-        
+        report = self.monitor.get_stats().get('threat_intel', {})
+        firewall_report = self.monitor.get_stats().get('firewall', {})
+
         # Update statistics
         self.stats_text.delete(1.0, tk.END)
-        stats_display = f"""Total Threats Detected: {report['total_threats']}
-Critical Threats: {report['critical']}
-High Priority: {report['high']}
-Medium Priority: {report['medium']}
-Low Priority: {report['low']}
+        stats_display = f"""Total Unique Threats: {report.get('total_threats', 0)}
+Critical Threats: {report.get('critical', 0)}
+High Priority: {report.get('high', 0)}
+Medium Priority: {report.get('medium', 0)}
+Low Priority: {report.get('low', 0)}
 
-IP Reputation Database: {len(self.monitor.threat_intel.reputation_db)} entries
-Firewall Blocked IPs: {len(self.monitor.firewall.blocked_ips)}
+Firewall Blocked IPs: {firewall_report.get('blocked_ips', 0)}
 """
         self.stats_text.insert(tk.END, stats_display)
         
         # Update threats tree
         self.threats_tree.delete(*self.threats_tree.get_children())
         
-        for idx, (ip, data) in enumerate(report['top_threats'], 1):
+        for ip, data in report.get('top_threats', []):
             self.threats_tree.insert(
                 "",
                 tk.END,
-                text=str(idx),
                 values=(
                     ip,
                     data['type'],
@@ -166,16 +156,16 @@ Firewall Blocked IPs: {len(self.monitor.firewall.blocked_ips)}
         if not selection:
             return
         
-        item = selection[0]
-        values = self.threats_tree.item(item)['values']
-        ip = values[0]
+        item = self.threats_tree.item(selection[0])
+        ip = item['values'][0]
         
-        success = self.monitor.block_ip(ip, "Manual block from Threat Intel")
-        if success:
-            tk.messagebox.showinfo("Success", f"Blocked IP: {ip}")
-            self._refresh_data()
-        else:
-            tk.messagebox.showerror("Error", "Failed to block IP")
+        if messagebox.askyesno("Confirm Block", f"Are you sure you want to block {ip}?"):
+            success = self.monitor.block_ip(ip, "Manual block from Threat Intel")
+            if success:
+                messagebox.showinfo("Success", f"Blocked IP: {ip}")
+                self._refresh_data()
+            else:
+                messagebox.showerror("Error", "Failed to block IP. It might already be blocked.")
     
     def _view_details(self):
         """View detailed information about selected threat"""
@@ -183,8 +173,8 @@ Firewall Blocked IPs: {len(self.monitor.firewall.blocked_ips)}
         if not selection:
             return
         
-        item = selection[0]
-        values = self.threats_tree.item(item)['values']
+        item = self.threats_tree.item(selection[0])
+        values = item['values']
         
         details = f"""IP Address: {values[0]}
 Threat Type: {values[1]}
@@ -195,5 +185,4 @@ Last Seen: {values[4]}
 Reputation Score: {self.monitor.threat_intel.check_ip_reputation(values[0])}/100
 """
         
-        # Show in message box
-        tk.messagebox.showinfo("Threat Details", details)
+        messagebox.showinfo("Threat Details", details)

@@ -1,8 +1,3 @@
-"""
-Bandwidth Monitor Window
-Real-time bandwidth usage visualization
-"""
-
 import tkinter as tk
 from tkinter import ttk
 import matplotlib.pyplot as plt
@@ -28,8 +23,9 @@ class BandwidthWindow:
         self.bandwidth_data = deque(maxlen=60)
         self.packet_rates = deque(maxlen=60)
         
-        # Previous packet count for rate calculation
+        # Previous values for rate calculation
         self.prev_packet_count = 0
+        self.prev_byte_count = 0
         self.prev_time = datetime.datetime.now()
         
         self._setup_ui()
@@ -99,24 +95,30 @@ class BandwidthWindow:
         if time_diff < 0.1:  # Avoid division by zero
             return
         
+        stats = self.monitor.get_stats()
+        current_packet_count = stats.get('packet_count', 0)
+        current_byte_count = stats.get('total_bytes', 0)
+
         # Calculate packet rate
-        packet_diff = self.monitor.packet_count - self.prev_packet_count
+        packet_diff = current_packet_count - self.prev_packet_count
         packet_rate = packet_diff / time_diff if time_diff > 0 else 0
         
-        # Estimate bandwidth (assuming average packet size of 500 bytes)
-        estimated_bandwidth = (packet_rate * 500) / 1024  # KB/s
-        
+        # Calculate actual bandwidth
+        byte_diff = current_byte_count - self.prev_byte_count
+        bandwidth_kbs = (byte_diff / 1024) / time_diff if time_diff > 0 else 0
+
         # Store data
         self.timestamps.append(current_time.strftime("%H:%M:%S"))
-        self.bandwidth_data.append(estimated_bandwidth)
+        self.bandwidth_data.append(bandwidth_kbs)
         self.packet_rates.append(packet_rate)
         
         # Update previous values
-        self.prev_packet_count = self.monitor.packet_count
+        self.prev_packet_count = current_packet_count
+        self.prev_byte_count = current_byte_count
         self.prev_time = current_time
         
         # Update statistics display
-        self._update_stats(packet_rate, estimated_bandwidth)
+        self._update_stats(packet_rate, bandwidth_kbs)
         
         # Update charts
         self._update_charts()
@@ -133,7 +135,7 @@ class BandwidthWindow:
 Current Bandwidth: {bandwidth:.2f} KB/s
 Average Bandwidth: {avg_bandwidth:.2f} KB/s
 Peak Bandwidth: {max_bandwidth:.2f} KB/s
-Total Packets: {stats['packet_count']}"""
+Total Data: {stats.get('total_bytes', 0) / (1024*1024):.2f} MB"""
         
         self.stats_text.delete(1.0, tk.END)
         self.stats_text.insert(tk.END, stats_display)

@@ -1,8 +1,3 @@
-"""
-Machine Learning Dashboard
-Visualize ML model predictions and anomaly detection
-"""
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from utils.constants import THEME_COLORS
@@ -206,30 +201,31 @@ Detection Methods:
     
     def _update_model_stats(self):
         """Update detailed model statistics"""
-        if not self.monitor.ml_available:
+        if not self.monitor.ml_available or not hasattr(self.monitor, 'ml_engine') or not self.monitor.ml_engine:
             self.model_stats_text.delete(1.0, tk.END)
             self.model_stats_text.insert(tk.END, "ML models not available")
             return
         
         ml_stats = self.monitor.ml_engine.get_ml_stats()
         stats = self.monitor.get_stats()
+
+        header = "ML SECURITY ENGINE - DETAILED STATISTICS"
         
-        details = f"""═══════════════════════════════════════════════════════
-              ML SECURITY ENGINE - DETAILED STATISTICS
-═══════════════════════════════════════════════════════
+        details = f"""{header.center(60)}
+{'═' * 60}
 
 MODEL STATUS:
-  • Isolation Forest: {'✓ Trained' if ml_stats['models_trained'] else '✗ Not Trained'}
-  • Random Forest: {'✓ Available' if ml_stats['models_available'] else '✗ Not Available'}
+  • Isolation Forest: {'✓ Trained' if ml_stats.get('models_trained') else '✗ Not Trained'}
+  • Random Forest: {'✓ Available' if 'Random Forest' in ml_stats.get('model_types', []) else '✗ Not Available'}
   • Heuristic Rules: ✓ Active
 
 ANALYSIS STATISTICS:
-  • Total Predictions: {ml_stats['predictions_made']}
-  • Training Samples: {ml_stats['training_samples']}/100
+  • Total Predictions: {ml_stats.get('predictions_made', 0)}
+  • Training Samples: {ml_stats.get('training_samples', 0)}/100
   • Threats Detected: {stats.get('threats_detected', 0)}
   • ML Anomalies: {stats.get('ml_anomalies', 0)}
 
-DETECTION ACCURACY:
+DETECTION ACCURACY (CONCEPTUAL):
   • False Positive Rate: Monitoring...
   • True Positive Rate: Monitoring...
   • Confidence Threshold: 0.70
@@ -246,12 +242,12 @@ MODEL PARAMETERS:
   • Contamination Rate: 10%
   • Update Frequency: Real-time
 
-PERFORMANCE:
+PERFORMANCE (CONCEPTUAL):
   • Average Prediction Time: <1ms
   • Memory Usage: Normal
   • CPU Usage: Low
 
-═══════════════════════════════════════════════════════
+{'═' * 60}
 """
         
         self.model_stats_text.delete(1.0, tk.END)

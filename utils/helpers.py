@@ -7,7 +7,7 @@ import socket
 import ipaddress
 import platform
 import subprocess
-
+from scapy.all import sr1, IP, ICMP
 
 def validate_ip_address(ip_string):
     """
@@ -52,10 +52,9 @@ def get_local_ip():
     """
     try:
         # Create a socket to determine local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
         return local_ip
     except Exception:
         return "127.0.0.1"
@@ -134,6 +133,8 @@ def format_bytes(bytes_value):
     Returns:
         Formatted string (e.g., "1.5 MB")
     """
+    if bytes_value < 1024:
+        return f"{bytes_value} B"
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if bytes_value < 1024.0:
             return f"{bytes_value:.2f} {unit}"
@@ -188,9 +189,28 @@ def get_service_name(port, protocol='tcp'):
         return common_ports.get(port, 'unknown')
 
 
-def ping_host(host, count=1):
+def ping_host_scapy(host, timeout=2):
     """
-    Ping a host to check if it's reachable
+    Ping a host using Scapy to check if it's reachable.
+    This is a cross-platform and more integrated alternative.
+
+    Args:
+        host: Hostname or IP address
+        timeout: Timeout in seconds
+    
+    Returns:
+        True if host is reachable, False otherwise
+    """
+    try:
+        ans = sr1(IP(dst=host)/ICMP(), timeout=timeout, verbose=0)
+        return ans is not None
+    except Exception:
+        return False
+
+
+def ping_host_os(host, count=1):
+    """
+    Ping a host to check if it's reachable using the OS's ping command.
     
     Args:
         host: Hostname or IP address
@@ -207,10 +227,11 @@ def ping_host(host, count=1):
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=5
+            timeout=5,
+            check=True
         )
         return result.returncode == 0
-    except Exception:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
 
@@ -238,30 +259,6 @@ def get_protocol_name(protocol_num):
     return protocols.get(protocol_num, f'Unknown({protocol_num})')
 
 
-def calculate_checksum(data):
-    """
-    Calculate Internet checksum
-    
-    Args:
-        data: Bytes to checksum
-    
-    Returns:
-        Checksum value
-    """
-    if len(data) % 2 != 0:
-        data += b'\x00'
-    
-    checksum = 0
-    for i in range(0, len(data), 2):
-        word = (data[i] << 8) + data[i + 1]
-        checksum += word
-    
-    checksum = (checksum >> 16) + (checksum & 0xFFFF)
-    checksum += (checksum >> 16)
-    
-    return ~checksum & 0xFFFF
-
-
 def sanitize_filename(filename):
     """
     Sanitize filename by removing invalid characters
@@ -272,10 +269,7 @@ def sanitize_filename(filename):
     Returns:
         Sanitized filename
     """
-    invalid_chars = '<>:"/\\|?*'
-    for char in invalid_chars:
-        filename = filename.replace(char, '_')
-    return filename
+    return "".join(c for c in filename if c.isalnum() or c in (' ', '.', '_')).rstrip()
 
 
 def get_network_info():
@@ -291,3 +285,4 @@ def get_network_info():
         'platform': platform.system(),
         'architecture': platform.machine()
     }
+

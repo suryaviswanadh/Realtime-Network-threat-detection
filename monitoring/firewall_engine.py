@@ -4,12 +4,14 @@ Dynamic firewall rule management and packet filtering
 """
 
 from datetime import datetime
-
+import bisect
 
 class FirewallEngine:
     """Dynamic firewall rule management"""
     
     def __init__(self):
+        # self.rules is a list of tuples: (priority, rule_dict)
+        # This keeps it sorted by priority for efficient insertion.
         self.rules = []
         self.blocked_ips = set()
         self.allowed_ips = set()
@@ -40,17 +42,21 @@ class FirewallEngine:
             'hits': 0
         }
         
-        self.rules.append(rule)
-        
-        # Sort by priority (lower number = higher priority)
-        self.rules.sort(key=lambda x: x['priority'])
+        # Use bisect to insert the rule while keeping the list sorted by priority.
+        # This is more efficient than appending and re-sorting every time.
+        bisect.insort(self.rules, (priority, rule))
         
         return rule['id']
     
     def remove_rule(self, rule_id):
         """Remove firewall rule by ID"""
-        self.rules = [r for r in self.rules if r['id'] != rule_id]
-        return True
+        rule_found = False
+        for i, (priority, rule) in enumerate(self.rules):
+            if rule['id'] == rule_id:
+                self.rules.pop(i)
+                rule_found = True
+                break
+        return rule_found
     
     def check_packet(self, src_ip, dst_port, protocol):
         """
@@ -64,20 +70,20 @@ class FirewallEngine:
         Returns:
             'block', 'allow', or 'log'
         """
-        # Check rules in priority order
-        for rule in self.rules:
+        # Check rules in priority order (list is already sorted)
+        for priority, rule in self.rules:
+            match = False
             if rule['type'] == 'ip' and rule['value'] == src_ip:
-                rule['hits'] += 1
-                return rule['action']
-            
-            elif rule['type'] == 'port' and rule['value'] == dst_port:
-                rule['hits'] += 1
-                return rule['action']
-            
+                match = True
+            elif rule['type'] == 'port' and str(rule['value']) == str(dst_port):
+                match = True
             elif rule['type'] == 'protocol' and rule['value'].upper() == protocol.upper():
+                match = True
+            
+            if match:
                 rule['hits'] += 1
                 return rule['action']
-        
+
         # Default action: allow
         return 'allow'
     
@@ -106,9 +112,9 @@ class FirewallEngine:
         if ip_address in self.blocked_ips:
             self.blocked_ips.remove(ip_address)
             
-            # Remove associated rules
-            rules_to_remove = [r['id'] for r in self.rules 
-                             if r['type'] == 'ip' and r['value'] == ip_address]
+            # Find and remove associated rules
+            rules_to_remove = [rule['id'] for priority, rule in self.rules 
+                             if rule['type'] == 'ip' and rule['value'] == ip_address]
             
             for rule_id in rules_to_remove:
                 self.remove_rule(rule_id)
@@ -120,13 +126,15 @@ class FirewallEngine:
     
     def get_rules_report(self):
         """Generate firewall rules report"""
+        # Extract just the rule dictionaries from the (priority, rule) tuples
+        rule_list = [rule for priority, rule in self.rules]
         return {
-            'total_rules': len(self.rules),
+            'total_rules': len(rule_list),
             'blocked_ips': len(self.blocked_ips),
             'allowed_ips': len(self.allowed_ips),
-            'rules': self.rules,
+            'rules': rule_list,
             'top_hit_rules': sorted(
-                self.rules,
+                rule_list,
                 key=lambda x: x['hits'],
                 reverse=True
             )[:10]
