@@ -1,116 +1,185 @@
+# 🛡️ Real-Time Network Threat Detection with Machine Learning
 
-# Real-Time Network Threat Detection with ML & Flow Analysis
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Active-success)
+![GUI](https://img.shields.io/badge/Interface-Tkinter-orange)
 
-This is an advanced real-time network intrusion detection system (IDS) built with Python. It captures live network traffic, performs both packet-level and flow-level analysis, and uses a pre-trained Random Forest model to classify network flows and detect threats.
+An advanced **real-time Intrusion Detection System (IDS)** built using **Python and Machine Learning**.  
+This tool captures live network traffic, analyzes both **packet-level** and **flow-level** data, and detects threats using a **Random Forest classifier** trained on the **CICIDS2017 dataset**.  
+It includes an interactive **Tkinter GUI** for live monitoring, analysis, and alert visualization.
 
-The application features a complete multi-threaded Tkinter GUI for real-time statistics, live alerts, and access to network tools.
+---
 
-![Main Dashboard](screenshots/dashboard.png)
-*(You should add a new screenshot of your main GUI to the `screenshots` folder)*
+## 🚀 Key Features
 
-## Key Features
+- **🧠 ML-Based Threat Analysis:**  
+  Detects anomalies using trained Random Forest models on real traffic data.
 
-* **Real-Time Packet Capture:** Uses Scapy to capture live network packets from your network interface.
-* **Flow-Based Threat Detection (Primary Method):**
-    * Assembles individual packets into network "flows" (conversations between two endpoints).
-    * Calculates 78+ features for each flow when it terminates (e.g., `Flow Duration`, `Fwd Packet Length Mean`, `Flow IAT Max`, etc.), mirroring the CIC-IDS dataset.
-    * Uses a pre-trained **Random Forest Classifier** (`rf_model.joblib`) to classify each flow as `BENIGN` or a specific attack type (e.g., `FTP-Patator`).
-* **Packet-Level Threat Detection (Fast Path):**
-    * **DPI (Deep Packet Inspection):** Performs basic checks for malicious DNS queries (against a blocklist), suspicious HTTP payloads, and known malware signatures.
-    * **Heuristic Detection:** Identifies DoS (SYN Flood) attacks and Port Scans in real-time as they happen.
-* **Complete GUI:** A multi-threaded Tkinter application to visualize:
-    * Live statistics (packets/sec, data transferred, active flows).
-    * A real-time log of security alerts from all detection methods.
-    * Charts for threat distribution and protocol usage.
-* **Built-in Network Tools:**
-    * **Packet Analyzer:** View live packet summaries with a BPF filter and **save captures to a .pcap file** for analysis in Wireshark.
-    * **Port Scanner:** Scan any IP address for open ports.
-    * **Bandwidth Monitor:** See real-time graphs of your network usage.
-* **Advanced Dashboards:**
-    * **ML Dashboard:** Shows the status of the loaded pre-trained Random Forest model and its statistics.
-    * **Firewall Manager:** View and manage IPs automatically blocked by the system.
-    * **Threat Intelligence:** View a summary of detected threat IPs.
+- **📡 Real-Time Packet Capture:**  
+  Uses **Scapy** for live packet sniffing and protocol-level inspection.
 
-## How It Works
+- **⚡ Packet & Flow Detection:**  
+  Detects DoS, DDoS, Port Scanning, and Infiltration patterns in real-time.
 
-This application operates on a hybrid model:
+- **🖥️ Graphical Interface (Tkinter):**  
+  - Real-time charts for network activity  
+  - Live alerts and statistics  
+  - Traffic visualization dashboard  
 
-1.  **Packet-Level (Real-time):**
-    * A sniffing thread captures all IP packets using Scapy.
-    * Each packet is immediately checked by `monitor.py` for:
-        * Firewall block rules.
-        * Simple heuristic threats (DoS, Port Scan).
-        * Basic DPI signatures (malicious DNS, bad HTTP patterns).
-    * If a packet-level threat is found, an alert is generated instantly.
+- **🧰 Tools Integrated:**  
+  - Port Scanner  
+  - Bandwidth Monitor  
+  - IP Firewall Blocker  
+  - Packet Analyzer  
 
-2.  **Flow-Level (ML Analysis):**
-    * Packets that are not blocked are passed to a flow assembler.
-    * The `flow.py` module groups packets into "flows" based on their source/destination IP, port, and protocol.
-    * When a flow ends (either by a FIN/RST packet or by timing out after 60 seconds), the `flow.py` module calculates its 78+ features.
-    * These flow features are sent to the `ml_engine.py` module.
-    * The `ml_engine.py` module uses the pre-loaded `rf_scaler.joblib` to scale the features and the `rf_model.joblib` (Random Forest) to predict the flow's class.
-    * If the flow is classified as an attack (e.g., `FTP-Patator`), an `ML_...` alert is generated.
+- **📊 Dashboards:**  
+  - Threat Summary  
+  - Protocol Statistics  
+  - Real-time Network Utilization  
 
-## Installation
+---
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-github-repo-link>
-    cd Realtime-Network-threat-detection
-    ```
+## ⚙️ System Workflow
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python -m venv .venv
-    # On Windows
-    .\.venv\Scripts\Activate.ps1
-    ```
+### 1️⃣ Packet-Level Detection
+- Scapy captures packets directly from your network interface.  
+- Analyzes IP, TCP, UDP, and ICMP headers.  
+- Performs heuristic-based detection (e.g., DoS and port scan detection).  
+- Generates alerts in the GUI.
 
-3.  **Install dependencies:**
-    (Ensure you have `joblib`, `pandas`, `scikit-learn`, `scapy`, and `matplotlib` in your `requirements.txt` file)
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 2️⃣ Flow-Level Detection
+- Packets are grouped into network flows.  
+- Extracts 78+ statistical flow features (e.g., duration, packet rate, byte rate).  
+- Features normalized via `rf_scaler.joblib`.  
+- Random Forest model (`rf_model.joblib`) classifies traffic as **benign** or **attack**.  
+- Alerts displayed in real-time on the GUI.
 
-## How to Train Your Own Model
+---
 
-This project relies on four files you must generate by training on a dataset:
-* `rf_model.joblib`: The trained Random Forest model.
-* `rf_scaler.joblib`: The scaler used on the training data.
-* `rf_feature_names.joblib`: The exact list of feature names used.
-* `rf_classes.joblib`: The names of the classes the model can predict.
+## 🧩 Installation
 
-A training script is provided in the `training/` folder.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/suryaviswanadh/Realtime-Network-threat-detection.git
+cd Realtime-Network-threat-detection
+2. Create and Activate Virtual Environment
+bash
+Copy code
+python -m venv .venv
+# On Windows
+.\.venv\Scripts\Activate.ps1
+# On Linux/Mac
+source .venv/bin/activate
+3. Install Dependencies
+bash
+Copy code
+pip install -r requirements.txt
+🧠 Train Your Own Model
+To customize your model with new datasets (e.g., CICIDS2017):
 
-1.  **Download a Dataset:** Get a flow-based dataset like CIC-IDS-2017 or CIC-IDS-2018. Place the `.csv` files (e.g., `Tuesday-WorkingHours.pcap_ISCX.csv`) into the `training/` folder.
-2.  **Edit the Training Script:** Open `training/train_random_forest.py`.
-    * Update `DATASET_FILENAME` to the CSV you want to use (e.g., `Tuesday...` which contains attacks).
-    * **Crucially**, update the `feature_names_original` and `LABEL_COLUMN_ORIGINAL` lists to **exactly match** the column headers in your CSV file (check for spaces!).
-    * Adjust `MAX_CHUNKS_TO_PROCESS` to control how much data you train on (to manage memory usage).
-3.  **Run the Script:**
-    ```bash
-    # Navigate into the training folder
-    cd training
-    # Run the script
-    python train_random_forest.py
-    ```
-4.  This will create the four new `.joblib` files in the main project directory, which the application will automatically load the next time it starts.
+Download the dataset from
+🔗 Google Drive Dataset Folder
 
-## How to Run the Application
+Place CSV files inside the training/ folder.
 
-You **must** run this application with **Administrator/Root privileges** to allow for packet capture.
+Run:
 
-1.  **Open PowerShell as Administrator.**
-2.  Navigate to the project directory:
-    ```powershell
-    cd D:\cyber_security_tool\Realtime-Network-threat-detection
-    ```
-3.  Activate your virtual environment:
-    ```powershell
-    .\.venv\Scripts\Activate.ps1
-    ```
-4.  Run the main script:
-    ```powershell
-    python main.py
-    ```
-5.  Enter an IP to monitor (e.g., your router's IP `192.168.0.1`) and click "Start Monitoring".
+bash
+Copy code
+cd training
+python train_random_forest.py
+Generated files:
+
+Copy code
+rf_model.joblib
+rf_scaler.joblib
+rf_feature_names.joblib
+rf_classes.joblib
+These files are automatically loaded by main.py during real-time monitoring.
+
+▶️ How to Run
+⚠️ Run as Administrator / Root for network capture access.
+
+bash
+Copy code
+cd Realtime-Network-threat-detection
+.\.venv\Scripts\Activate.ps1
+python main.py
+Then:
+
+Select network interface or IP to monitor.
+
+Click Start Monitoring.
+
+Watch live alerts, stats, and detection logs update in real time.
+
+📸 Screenshots
+🖥️ Main Dashboard
+(Add image under screenshots/ folder and reference it below)
+
+
+
+📈 Threat Analysis
+
+🧾 Folder Structure
+graphql
+Copy code
+Realtime-Network-threat-detection/
+│
+├── main.py                     # Main GUI application
+├── monitoring/                 # Packet sniffing and detection backend
+├── utils/                      # Helper utilities and constants
+├── training/                   # ML model training scripts
+├── models/                     # Trained model files (.joblib)
+├── screenshots/                # GUI images for README
+├── requirements.txt            # Dependency list
+└── README.md                   # Project documentation
+🧪 Example Output
+When detecting malicious packets or flows:
+
+css
+Copy code
+[ALERT] Possible DDoS Attack Detected from 192.168.1.22
+[ALERT] Port Scan Activity from 10.0.0.15
+[INFO] Normal Traffic - Flow classified as BENIGN
+🧰 Requirements.txt (Dependencies)
+For convenience, here’s the same list included in your project file:
+
+nginx
+Copy code
+pandas
+numpy
+scapy
+matplotlib
+scikit-learn
+joblib
+tk
+threading
+datetime
+warnings
+(Tkinter is included with Python by default; you only need to install others.)
+
+🤝 Contributing
+Contributions, bug reports, and ideas are welcome!
+Please open a Pull Request or Issue on GitHub.
+
+🪪 License
+This project is licensed under the MIT License — you are free to use and modify it with credit.
+
+💬 Author
+👨‍💻 Surya Viswanadh
+🔗 GitHub Profile
+📧 Reach out for collaboration or ideas!
+
+⭐ If you like this project, don’t forget to star it on GitHub!
+
+yaml
+Copy code
+
+---
+
+✅ **Copy everything above** into a file named `README.md`  
+and place it inside your repository root folder (`Realtime-Network-threat-detection/`).  
+
+Would you like me to create a **short “Project Description”** (2–3 lines) you can pa
