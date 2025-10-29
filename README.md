@@ -80,6 +80,7 @@ To customize your model with new datasets (e.g., CICIDS2017):
 
 Download the dataset from
 🔗 Google Drive Dataset Folder
+https://drive.google.com/drive/folders/1qCd4CnH_j1G0I5kEUV2dazThDdQ9LjhX?usp=drive_link
 
 Place CSV files inside the training/ folder.
 
@@ -116,7 +117,8 @@ Watch live alerts, stats, and detection logs update in real time.
 
 📸 Screenshots
 🖥️ Main Dashboard
-(Add image under screenshots/ folder and reference it below)
+<img width="1497" height="1022" alt="Screenshot 2025-10-28 035101" src="https://github.com/user-attachments/assets/199f4733-95d3-4077-be0c-fb50be382c6f" />
+
 
 
 
@@ -174,12 +176,3 @@ This project is licensed under the MIT License — you are free to use and modif
 
 ⭐ If you like this project, don’t forget to star it on GitHub!
 
-yaml
-Copy code
-
----
-
-✅ **Copy everything above** into a file named `README.md`  
-and place it inside your repository root folder (`Realtime-Network-threat-detection/`).  
-
-Would you like me to create a **short “Project Description”** (2–3 lines) you can pa
