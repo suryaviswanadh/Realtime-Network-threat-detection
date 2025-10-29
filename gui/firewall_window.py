@@ -1,190 +1,149 @@
-"""
-Firewall Engine Module
-Dynamic firewall rule management and packet filtering
-"""
+# D:\cyber_security_tool\Realtime-Network-threat-detection\gui\firewall_window.py
 
-from datetime import datetime
-import bisect
+import tkinter as tk
+from tkinter import ttk, messagebox
 
-class FirewallEngine:
-    """Dynamic firewall rule management"""
-    
-    def __init__(self):
-        # self.rules is a list of tuples: (priority, rule_id, rule_dict)
-        # We add rule_id to ensure unique, comparable elements for bisect.
-        self.rules = []
-        self.blocked_ips = set()
-        self.allowed_ips = set()
-        self.rule_id_counter = 0
-        
-    def add_rule(self, rule_type, value, action='block', priority=5):
-        """
-        Add firewall rule
-        
-        Args:
-            rule_type: 'ip', 'port', or 'protocol'
-            value: The value to match (IP address, port number, or protocol name)
-            action: 'block', 'allow', or 'log'
-            priority: Lower number = higher priority (1-10)
-        
-        Returns:
-            rule_id: Unique identifier for the rule
-        """
-        self.rule_id_counter += 1
-        rule_id = self.rule_id_counter # Get the unique ID
-        
-        rule = {
-            'id': rule_id, # Use the ID here
-            'type': rule_type,
-            'value': value,
-            'action': action,
-            'priority': priority,
-            'created': datetime.now(),
-            'hits': 0
-        }
-        
-        # --- FIX: Insert (priority, rule_id, rule) ---
-        # rule_id ensures uniqueness if priorities are the same, preventing
-        # the TypeError when comparing dictionaries.
-        bisect.insort(self.rules, (priority, rule_id, rule))
-        
-        return rule_id
-    
-    def remove_rule(self, rule_id):
-        """Remove firewall rule by ID"""
-        rule_found = False
-        # Iterate through a copy in case we modify the list
-        for i, (priority, r_id, rule) in enumerate(list(self.rules)):
-            if r_id == rule_id: # Compare using rule_id
-                self.rules.pop(i)
-                rule_found = True
-                # If removing a blocked IP rule, update the blocked_ips set
-                if rule['type'] == 'ip' and rule['action'] == 'block':
-                    if rule['value'] in self.blocked_ips:
-                        # Check if any other rule still blocks this IP before removing
-                        still_blocked = any(
-                            prio == rule['priority'] and other_rule['type'] == 'ip' and other_rule['value'] == rule['value'] and other_rule['action'] == 'block'
-                            for prio, other_id, other_rule in self.rules if other_id != rule_id
-                        )
-                        if not still_blocked:
-                           self.blocked_ips.discard(rule['value'])
+class FirewallWindow(tk.Toplevel):
+    def __init__(self, parent, monitor_instance):
+        super().__init__(parent)
+        self.title("Firewall Manager")
+        self.geometry("800x600")
+        self.parent = parent
+        self.monitor = monitor_instance
+        self.protocol("WM_DELETE_WINDOW", self.on_close) # Handle window close event
 
-                break # Assume rule IDs are unique
-        return rule_found
-    
-    def check_packet(self, src_ip, dst_port, protocol):
-        """
-        Check if packet should be blocked
-        
-        Args:
-            src_ip: Source IP address
-            dst_port: Destination port
-            protocol: Protocol name ('TCP', 'UDP', 'ICMP')
-        
-        Returns:
-            'block', 'allow', or 'log'
-        """
-        # Check rules in priority order (list is already sorted)
-        for priority, rule_id, rule in self.rules: # Unpack the tuple correctly
-            match = False
-            # Ensure type matching for comparison (e.g., port is int vs string)
-            try:
-                if rule['type'] == 'ip' and rule['value'] == src_ip:
-                    match = True
-                elif rule['type'] == 'port' and int(rule['value']) == dst_port: # Compare as int
-                    match = True
-                elif rule['type'] == 'protocol' and rule['value'].upper() == protocol.upper():
-                    match = True
-            except (ValueError, TypeError):
-                 # Handle cases where rule value might not be convertible (e.g., invalid port rule)
-                 continue # Skip this rule if types mismatch
+        self.create_widgets()
+        self.refresh_rules()
 
-            if match:
-                rule['hits'] += 1
-                return rule['action']
+        # Center the window
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
 
-        # Default action: allow
-        return 'allow'
-    
-    def auto_block_threat(self, ip_address, reason):
-        """
-        Automatically block a threatening IP
-        
-        Args:
-            ip_address: IP to block
-            reason: Reason for blocking
-        
-        Returns:
-            True if successfully added a block rule, False otherwise
-        """
-        # Check if this specific IP is already blocked by *any* rule
-        already_blocked_by_rule = any(
-            rule['type'] == 'ip' and rule['value'] == ip_address and rule['action'] == 'block'
-            for _, _, rule in self.rules
-        )
-        
-        if not already_blocked_by_rule:
-            self.blocked_ips.add(ip_address)
-            # Add high-priority block rule
-            self.add_rule('ip', ip_address, 'block', priority=1)
-            print(f"[FIREWALL] Added block rule for {ip_address}: {reason}")
-            return True
+    def create_widgets(self):
+        # Frame for controls
+        control_frame = ttk.Frame(self)
+        control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
+
+        ttk.Label(control_frame, text="IP Address:").pack(side=tk.LEFT, padx=(0, 5))
+        self.ip_entry = ttk.Entry(control_frame, width=20)
+        self.ip_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(control_frame, text="Reason:").pack(side=tk.LEFT, padx=(0, 5))
+        self.reason_entry = ttk.Entry(control_frame, width=30)
+        self.reason_entry.insert(0, "Manual Block")
+        self.reason_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Button(control_frame, text="Block IP", command=self.block_ip).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(control_frame, text="Unblock IP", command=self.unblock_selected_ip).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(control_frame, text="Clear All Blocks", command=self.clear_all_blocks).pack(side=tk.LEFT)
+        ttk.Button(control_frame, text="Refresh", command=self.refresh_rules).pack(side=tk.RIGHT)
+
+        # Treeview for displaying rules
+        columns = ("IP Address", "Action", "Protocol", "Port", "Reason", "Timestamp")
+        self.rules_tree = ttk.Treeview(self, columns=columns, show="headings", selectmode="browse")
+
+        for col in columns:
+            self.rules_tree.heading(col, text=col, anchor=tk.W)
+            self.rules_tree.column(col, width=ttk.Font().measure(col) + 20, stretch=True)
+
+        self.rules_tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(self.rules_tree, orient=tk.VERTICAL, command=self.rules_tree.yview)
+        self.rules_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def block_ip(self):
+        ip = self.ip_entry.get().strip()
+        reason = self.reason_entry.get().strip()
+        if not ip:
+            messagebox.showwarning("Input Error", "Please enter an IP address to block.")
+            return
+
+        # Basic IP validation (can be enhanced)
+        if not self.is_valid_ip(ip):
+            messagebox.showwarning("Input Error", "Invalid IP address format.")
+            return
+
+        if self.monitor and self.monitor.enhanced_features_available and hasattr(self.monitor, 'firewall'):
+            success = self.monitor.block_ip(ip, reason)
+            if success:
+                messagebox.showinfo("Success", f"IP {ip} blocked successfully.")
+                self.ip_entry.delete(0, tk.END) # Clear IP entry
+                self.reason_entry.delete(0, tk.END)
+                self.reason_entry.insert(0, "Manual Block")
+                self.refresh_rules()
+            else:
+                messagebox.showerror("Error", f"Failed to block IP {ip}. Firewall might not be active or an error occurred.")
         else:
-             # Optionally print that it was already blocked if needed for debugging
-             # print(f"[FIREWALL] IP {ip_address} is already blocked by an existing rule.")
-             pass
+            messagebox.showwarning("Firewall Not Available", "Firewall engine is not initialized or available.")
 
-        # Return False if we didn't add a *new* rule, even if logically blocked
-        return False
+    def unblock_selected_ip(self):
+        selected_item = self.rules_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Selection Error", "Please select a rule from the list to unblock.")
+            return
 
-    def unblock_ip(self, ip_address):
-        """Unblock an IP address by removing ALL rules blocking it."""
-        rules_removed = False
-        # Find all rules blocking this specific IP
-        rules_to_remove = [r_id for prio, r_id, rule in self.rules
-                           if rule['type'] == 'ip' and rule['value'] == ip_address and rule['action'] == 'block']
-        
-        if not rules_to_remove:
-            print(f"[FIREWALL] No block rules found for {ip_address}")
-            return False # No rules found to remove
+        ip_address = self.rules_tree.item(selected_item, "values")[0] # Get IP from the first column
 
-        for rule_id in rules_to_remove:
-            if self.remove_rule(rule_id):
-                rules_removed = True
-        
-        # Update the set after removing rules
-        self.blocked_ips.discard(ip_address)
+        if messagebox.askyesno("Confirm Unblock", f"Are you sure you want to unblock {ip_address}?"):
+            if self.monitor and self.monitor.enhanced_features_available and hasattr(self.monitor, 'firewall'):
+                success = self.monitor.unblock_ip(ip_address)
+                if success:
+                    messagebox.showinfo("Success", f"IP {ip_address} unblocked successfully.")
+                    self.refresh_rules()
+                else:
+                    messagebox.showerror("Error", f"Failed to unblock IP {ip_address}.")
+            else:
+                messagebox.showwarning("Firewall Not Available", "Firewall engine is not initialized or available.")
 
-        if rules_removed:
-            print(f"[FIREWALL] Removed block rules for {ip_address}")
-            return True
-        
-        return False
-    
-    def get_rules_report(self):
-        """Generate firewall rules report"""
-        # Extract just the rule dictionaries from the (priority, id, rule) tuples
-        rule_list = [rule for priority, rule_id, rule in self.rules]
-        # Recalculate blocked_ips set based on current rules for accuracy
-        current_blocked_ips = {rule['value'] for _, _, rule in self.rules if rule['type'] == 'ip' and rule['action'] == 'block'}
-        self.blocked_ips = current_blocked_ips
+    def clear_all_blocks(self):
+        if messagebox.askyesno("Confirm Clear", "Are you sure you want to clear ALL firewall blocks? This cannot be undone."):
+            if self.monitor and self.monitor.enhanced_features_available and hasattr(self.monitor, 'firewall'):
+                success = self.monitor.clear_all_blocks()
+                if success:
+                    messagebox.showinfo("Success", "All firewall blocks cleared successfully.")
+                    self.refresh_rules()
+                else:
+                    messagebox.showerror("Error", "Failed to clear all blocks.")
+            else:
+                messagebox.showwarning("Firewall Not Available", "Firewall engine is not initialized or available.")
 
-        return {
-            'total_rules': len(rule_list),
-            'blocked_ips': len(self.blocked_ips),
-            # 'allowed_ips': len(self.allowed_ips), # This set wasn't really being used/updated
-            'rules': sorted(rule_list, key=lambda x: (x['priority'], x['id'])), # Sort for display
-            'top_hit_rules': sorted(
-                rule_list,
-                key=lambda x: x['hits'],
-                reverse=True
-            )[:10]
-        }
-    
-    def clear_all_rules(self):
-        """Clear all firewall rules"""
-        self.rules.clear()
-        self.blocked_ips.clear()
-        # self.allowed_ips.clear() # This set wasn't really being used
-        self.rule_id_counter = 0
-        print("[FIREWALL] Cleared all rules.")
+    def refresh_rules(self):
+        for item in self.rules_tree.get_children():
+            self.rules_tree.delete(item)
+
+        if self.monitor and self.monitor.enhanced_features_available and hasattr(self.monitor, 'firewall'):
+            rules = self.monitor.firewall.get_rules_report().get('rules', [])
+            for ip, rule_data in rules.items():
+                self.rules_tree.insert("", tk.END, values=(
+                    ip,
+                    rule_data.get('action', 'N/A'),
+                    rule_data.get('protocol', 'Any'),
+                    rule_data.get('port', 'Any'),
+                    rule_data.get('reason', 'N/A'),
+                    rule_data.get('timestamp', 'N/A')
+                ))
+            if not rules:
+                self.rules_tree.insert("", tk.END, values=("No active rules", "", "", "", "", ""))
+        else:
+            self.rules_tree.insert("", tk.END, values=("Firewall not available", "", "", "", "", ""))
+
+    def is_valid_ip(self, ip_string):
+        parts = ip_string.split('.')
+        if len(parts) != 4:
+            return False
+        for part in parts:
+            try:
+                num = int(part)
+                if not (0 <= num <= 255):
+                    return False
+            except ValueError:
+                return False
+        return True
+
+    def on_close(self):
+        # Optional: You can add cleanup here if needed
+        self.destroy()
